@@ -106,7 +106,14 @@ function buildBreadcrumb(id, status, templates) {
     body = "Refer to workflow.md for current step."
   }
   const header = id === null ? `Status: ${status}` : `Task: ${id} (${status})`
-  return `<workflow-state>\n${header}\n${body}\n<Action-Now>\n1. Follow workflow within <skill></skill>.\n2. Run or document, or run and document.\n</Action-Now>\n</workflow-state>`
+  const actionNow = [
+    "<Action-Now>",
+    "1. Check source code first. Build a coherent, unbroken backbone first by starting from the default path and executing the easiest strategy with the most necessary single step. Always state what to do first and note exceptions later, strictly avoiding opening with conditionals like `if`, `unless`, `only if`, or `only when`. Remember that the least the best restricts complexity, not completeness; you must deliver this baseline task end-to-end as a fully functional, ready-to-use unit without fragmenting the output or waiting for follow-up prompts. Ask questions only when missing context blocks this core backbone, mark remaining uncertainties as assumptions, expand the structure only to sharpen the main logic, and keep everything else rigorously compact.",
+    "2. Follow workflow within <skill></skill>.",
+    "3. Run or document, or run and document.",
+    "</Action-Now>",
+  ].join("\n")
+  return `<workflow-state>\n${header}\n${body}\n${actionNow}\n</workflow-state>`
 }
 
 export default {
