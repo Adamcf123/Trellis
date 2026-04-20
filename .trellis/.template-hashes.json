@@ -100,7 +100,7 @@
   ".codex/agents/research.toml": "b43d858eb51caaf13e11a16b173c77e5ecd7ca3c57e5e6ff8ee777766f1c8634",
   ".codex/hooks/session-start.py": "d2add6f6aaac51cb283aa250f8035869f1ba95815fb57bf5a648cd3435693fc6",
   ".codex/hooks.json": "a7d09984dde4938c9262658140ead0f1327b8251d7fae4f1ec9107b72be9c4fe",
-  ".opencode/plugins/inject-workflow-state.js": "decab44ce58fdf93cbd041c52602fa715fa9450ac66b98d68512048eea53d333",
+  ".opencode/plugins/inject-workflow-state.js": "0b11fb26cf7c87c90e6a5710e7df5687fcc35f986c4b1f3f1b9611a9fb53415b",
   ".opencode/commands/trellis/continue.md": "1871fa6cf466b87cc2339d0767576f2c98919cd3630a75da454136d98daf1558",
   ".opencode/skills/trellis-brainstorm/SKILL.md": "0083928c2c6714039552c0df7a6fcaf9847dde0baa153a0badc264d78602b066",
   ".trellis/config.yaml": "cb5216826e1091bfa0d4ebae257d6f43fa60ca2bafbf3d9a6489b2c1a51a99df",
@@ -116,5 +116,9 @@
   ".opencode/skills/trellis-break-loop/SKILL.md": "35afb53fef42cd494e566f1ef170dbf442ec2be7e19931f28a14079b4dda753f",
   ".opencode/skills/trellis-check/SKILL.md": "a3f17aef687aa3b475d12ee64c3293e5491bb7474336be2c0f9ec22042f13b6e",
   ".opencode/skills/trellis-update-spec/SKILL.md": "d975db7af166578488958751ae2c56edb827a68bddb569aa27acc3453f64e610",
-  ".opencode/lib/context-blocks.js": "a1c3e93362263b0d3b598177aeb6b5a549882fc6411e9937844cd08163c4d7e9"
+  ".opencode/lib/context-blocks.js": "a1c3e93362263b0d3b598177aeb6b5a549882fc6411e9937844cd08163c4d7e9",
+  ".agents/skills/trellis-start/SKILL.md": "3cedceb08121014e37fe61cf76d0a2886805932f8fe5723123c6bc753c196254",
+  ".claude/commands/trellis/start.md": "a6f356d84b8fd485cc92a13c943c1dd9b42a237c952aadbfe512e2078c0968cd",
+  ".cursor/commands/trellis-start.md": "a6f356d84b8fd485cc92a13c943c1dd9b42a237c952aadbfe512e2078c0968cd",
+  ".opencode/commands/trellis/start.md": "a6f356d84b8fd485cc92a13c943c1dd9b42a237c952aadbfe512e2078c0968cd"
 }
