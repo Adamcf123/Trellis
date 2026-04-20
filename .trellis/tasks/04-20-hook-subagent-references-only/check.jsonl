@@ -1,0 +1,6 @@
+{"file": ".opencode/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".opencode/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/cli/backend/quality-guidelines.md", "reason": "Verify TypeScript and backend quality rules"}
+{"file": ".trellis/spec/cli/unit-test/conventions.md", "reason": "Verify regression coverage expectations"}
+{"file": "packages/cli/test/regression.test.ts", "reason": "Check shared hook regressions"}
+{"file": "packages/cli/test/templates/opencode.test.ts", "reason": "Check OpenCode behavior coverage"}

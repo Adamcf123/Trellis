@@ -276,8 +276,8 @@ Spawn the implement sub-agent:
 - **Task description**: Implement the requirements per prd.md, consulting materials under `{TASK_DIR}/research/`; finish by running project lint and type-check
 
 The platform hook auto-handles:
-- Reads `implement.jsonl` and injects the referenced spec files into the agent prompt
-- Injects prd.md content
+- Reads `implement.jsonl` and injects the referenced paths/reasons into the agent prompt
+- Injects `prd.md` content (and `info.md` when present) in full
 
 [/Claude Code, Cursor, OpenCode, Codex, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid]
 

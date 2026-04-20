@@ -79,8 +79,8 @@ function isInteractiveTerminal(): boolean {
 }
 
 function shouldSkipConfirmation(options: UpdateOptions): boolean {
-  return Boolean(
-    options.yes || options.force || options.skipAll || options.createNew,
+  return [options.yes, options.force, options.skipAll, options.createNew].some(
+    Boolean,
   );
 }
 

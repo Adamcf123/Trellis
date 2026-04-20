@@ -1053,6 +1053,7 @@ describe("regression: current-task path normalization", () => {
 
   it("[workflow-state] no_task breadcrumb emitted when .current-task missing", () => {
     writeTrellisScripts();
+    writeProjectFile(path.join(".git", "HEAD"), "ref: refs/heads/main\n");
     writeProjectFile(path.join(".trellis", ".developer"), "name=test\n");
     writeProjectFile(path.join(".trellis", "workflow.md"), "# Empty\n");
     writeWorkflowStateHook();
@@ -1272,6 +1273,7 @@ describe("regression: current-task path normalization", () => {
     )?.content;
 
     writeTrellisScripts();
+    writeProjectFile(path.join(".git", "HEAD"), "ref: refs/heads/main\n");
     writeProjectFile(path.join(".trellis", ".developer"), "name=test\n");
     writeProjectFile(path.join(".trellis", "workflow.md"), "# Minimal\n");
     // Active task WITHOUT current_phase field (post-migration state)
@@ -1332,6 +1334,22 @@ describe("regression: current-task path normalization", () => {
     expect(sharedInject).not.toContain("update_current_phase(");
     // AGENTS_NO_PHASE_UPDATE constant was only used by the removed function
     expect(sharedInject).not.toContain("AGENTS_NO_PHASE_UPDATE");
+  });
+
+  it("[workflow-v2] inject-subagent-context.py uses references-only JSONL context model", () => {
+    const sharedInject = getSharedHookScripts().find(
+      (hook) => hook.name === "inject-subagent-context.py",
+    )?.content;
+
+    expect(sharedInject).toBeTruthy();
+    expect(sharedInject).toContain("def read_jsonl_references(");
+    expect(sharedInject).toContain("def dedupe_references(");
+    expect(sharedInject).toContain("def render_context_blocks(");
+    expect(sharedInject).toContain("Read these files on demand before changing related code.");
+    expect(sharedInject).toContain("Referenced files are NOT preloaded in full");
+    expect(sharedInject).not.toContain("def read_jsonl_entries(");
+    expect(sharedInject).not.toContain("def read_directory_contents(");
+    expect(sharedInject).not.toContain("All dev specs are injected above");
   });
 });
 

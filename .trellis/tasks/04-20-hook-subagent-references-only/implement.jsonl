@@ -1,0 +1,9 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/cli/backend/platform-integration.md", "reason": "Platform hook and integration rules"}
+{"file": ".trellis/spec/cli/backend/quality-guidelines.md", "reason": "TypeScript and backend quality rules"}
+{"file": ".trellis/spec/cli/unit-test/conventions.md", "reason": "Regression and unit test conventions"}
+{"file": "packages/cli/src/templates/opencode/plugins/inject-subagent-context.js", "reason": "Current OpenCode subagent injection logic"}
+{"file": "packages/cli/src/templates/opencode/lib/trellis-context.js", "reason": "Current OpenCode context helpers"}
+{"file": "packages/cli/src/templates/shared-hooks/inject-subagent-context.py", "reason": "Shared hook implementation to keep aligned"}
+{"file": "packages/cli/test/regression.test.ts", "reason": "Shared hook regression coverage"}
+{"file": "packages/cli/test/templates/opencode.test.ts", "reason": "OpenCode template behavior tests"}

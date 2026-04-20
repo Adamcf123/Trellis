@@ -8,6 +8,11 @@
 import { existsSync, readdirSync } from "fs"
 import { join } from "path"
 import { TrellisContext, debugLog } from "../lib/trellis-context.js"
+import {
+  buildCheckContextBlocks,
+  buildImplementContextBlocks,
+  renderContextBlocks,
+} from "../lib/context-blocks.js"
 
 // Supported subagent types
 const AGENTS_ALL = ["implement", "check", "research"]
@@ -16,46 +21,15 @@ const AGENTS_REQUIRE_TASK = ["implement", "check"]
 /**
  * Get context for implement agent
  */
-function getImplementContext(ctx, taskDir) {
-  const parts = []
-
-  const jsonlPath = join(ctx.directory, taskDir, "implement.jsonl")
-  const entries = ctx.readJsonlWithFiles(jsonlPath)
-  if (entries.length > 0) {
-    parts.push(ctx.buildContextFromEntries(entries))
-  }
-
-  const prd = ctx.readProjectFile(join(taskDir, "prd.md"))
-  if (prd) {
-    parts.push(`=== ${taskDir}/prd.md (Requirements) ===\n${prd}`)
-  }
-
-  const info = ctx.readProjectFile(join(taskDir, "info.md"))
-  if (info) {
-    parts.push(`=== ${taskDir}/info.md (Technical Design) ===\n${info}`)
-  }
-
-  return parts.join("\n\n")
+export function getImplementContext(ctx, taskDir) {
+  return renderContextBlocks(buildImplementContextBlocks(ctx, taskDir))
 }
 
 /**
  * Get context for check agent
  */
-function getCheckContext(ctx, taskDir) {
-  const parts = []
-
-  const jsonlPath = join(ctx.directory, taskDir, "check.jsonl")
-  const entries = ctx.readJsonlWithFiles(jsonlPath)
-  if (entries.length > 0) {
-    parts.push(ctx.buildContextFromEntries(entries))
-  }
-
-  const prd = ctx.readProjectFile(join(taskDir, "prd.md"))
-  if (prd) {
-    parts.push(`=== ${taskDir}/prd.md (Requirements) ===\n${prd}`)
-  }
-
-  return parts.join("\n\n")
+export function getCheckContext(ctx, taskDir) {
+  return renderContextBlocks(buildCheckContextBlocks(ctx, taskDir))
 }
 
 /**
@@ -125,7 +99,7 @@ function getResearchContext(ctx) {
 /**
  * Build enhanced prompt with context
  */
-function buildPrompt(agentType, originalPrompt, context, isFinish = false) {
+export function buildPrompt(agentType, originalPrompt, context, isFinish = false) {
   const templates = {
     implement: `# Implement Agent Task
 
@@ -145,7 +119,7 @@ ${originalPrompt}
 
 ## Workflow
 
-1. **Understand specs** - All dev specs are injected above
+1. **Understand references** - Relevant spec/code paths are listed above; read what you need on demand
 2. **Understand requirements** - Read requirements and technical design
 3. **Implement feature** - Follow specs and design
 4. **Self-check** - Ensure code quality
@@ -153,7 +127,7 @@ ${originalPrompt}
 ## Important Constraints
 
 - Do NOT execute git commit
-- Follow all dev specs injected above
+- Referenced files are NOT preloaded in full; read the relevant files before changing code
 - Report list of modified/created files when done`,
 
     check: isFinish ? `# Finish Agent Task
@@ -189,7 +163,8 @@ ${originalPrompt}
 - MUST read the target spec file BEFORE editing (avoid duplicating existing content)
 - Do NOT update specs for trivial changes (typos, formatting, obvious fixes)
 - If critical CODE issues found, report them clearly (fix specs, not code)
-- Verify all acceptance criteria in prd.md are met` :
+- Verify all acceptance criteria in prd.md are met
+- Referenced files are NOT preloaded in full; read the relevant files before verifying behavior` :
       `# Check Agent Task
 
 You are the Check Agent in the Multi-Agent Pipeline.
@@ -209,14 +184,15 @@ ${originalPrompt}
 ## Workflow
 
 1. **Get changes** - Run \`git diff --name-only\` and \`git diff\`
-2. **Check against specs** - Check item by item
+2. **Check against references** - Read the relevant referenced files and verify item by item
 3. **Self-fix** - Fix issues directly, don't just report
 4. **Run verification** - Run lint and typecheck
 
 ## Important Constraints
 
 - Fix issues yourself, don't just report
-- Must execute complete checklist`,
+- Must execute complete checklist
+- Referenced files are NOT preloaded in full; read the relevant files before checking changes`,
 
     research: `# Research Agent Task
 
