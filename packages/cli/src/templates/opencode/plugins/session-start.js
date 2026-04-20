@@ -6,7 +6,7 @@
  * Uses OpenCode's chat.message hook directly so the context persists in history.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "fs"
+import { existsSync, readFileSync, statSync } from "fs"
 import { basename, join } from "path"
 import { execFileSync } from "child_process"
 import { platform } from "os"
@@ -159,212 +159,94 @@ function checkLegacySpec(directory, config) {
 
 
 /**
- * Resolve which packages should have their specs injected.
- * Returns a Set of allowed package names, or null for full scan.
- */
-function resolveSpecScope(config) {
-  if (!config.isMonorepo || Object.keys(config.packages).length === 0) {
-    return null
-  }
-
-  const { specScope, activeTaskPackage, defaultPackage, packages } = config
-  if (specScope == null) return null
-
-  if (specScope === "active_task") {
-    if (activeTaskPackage && activeTaskPackage in packages) return new Set([activeTaskPackage])
-    if (defaultPackage && defaultPackage in packages) return new Set([defaultPackage])
-    return null
-  }
-
-  if (Array.isArray(specScope)) {
-    const valid = new Set()
-    for (const entry of specScope) {
-      if (entry in packages) {
-        valid.add(entry)
-      }
-    }
-    if (valid.size > 0) return valid
-    if (activeTaskPackage && activeTaskPackage in packages) return new Set([activeTaskPackage])
-    if (defaultPackage && defaultPackage in packages) return new Set([defaultPackage])
-    return null
-  }
-
-  return null
-}
-
-
-/**
- * Build session context for injection
+ * Build session context for injection.
+ *
+ * All injected content is wrapped in a single <trellis-context> block.
+ * The text OUTSIDE this block is the user's first message.
+ *
+ * We inject ONLY:
+ *   - Project state summary (git, tasks)
+ *   - Current task status
+ *   - Imperative next-action instruction
+ *
+ * Workflow guide and spec guidelines are NOT injected here — they are
+ * too long for session-start. The agent should read them on demand via
+ * the per-turn workflow-state breadcrumb or by reading files directly.
  */
 function buildSessionContext(ctx) {
   const directory = ctx.directory
   const trellisDir = join(directory, ".trellis")
 
-  const config = loadTrellisConfig(directory)
-  const allowedPkgs = resolveSpecScope(config)
-
   const parts = []
 
-  // 1. Header
+  // Header — imperative voice, clearly states that content outside the tag
+  // is the user's first message.
   parts.push(`<trellis-context>
-You are starting a new session in a Trellis-managed project.
-Read and follow all instructions below carefully.
-</trellis-context>`)
+You are an AI assistant working in a Trellis-managed project.
+The text OUTSIDE this XML block is the user's first message to you.
+`)
 
-  // Legacy migration warning
+  // Legacy migration warning (brief, inline)
+  const config = loadTrellisConfig(directory)
   const legacyWarning = checkLegacySpec(directory, config)
   if (legacyWarning) {
-    parts.push(`<migration-warning>\n${legacyWarning}\n</migration-warning>`)
+    parts.push(`## Migration Warning
+${legacyWarning}
+`)
   }
 
-  // 2. Current Context (dynamic)
+  // Project state — dynamic data from get_context.py
   const contextScript = join(trellisDir, "scripts", "get_context.py")
   if (existsSync(contextScript)) {
     const output = ctx.runScript(contextScript)
     if (output) {
-      parts.push("<current-state>")
+      parts.push("## Project State")
       parts.push(output)
-      parts.push("</current-state>")
+      parts.push("")
     }
   }
 
-  // 3. Workflow Guide — TOC + Phase Index + Phase 1/2/3 step details.
-  //    Meta sections (Core Principles / Trellis System / Breadcrumbs) are NOT
-  //    injected: Core Principles is short prose; Trellis System duplicates
-  //    commands in step bodies; Breadcrumbs are consumed by UserPromptSubmit hook.
-  const workflowContent = ctx.readProjectFile(".trellis/workflow.md")
-  if (workflowContent) {
-    const allLines = workflowContent.split("\n")
-    const overviewLines = [
-      "# Development Workflow — Section Index",
-      "Full guide: .trellis/workflow.md  (read on demand)",
-      "",
-      "## Table of Contents",
-    ]
-    for (const line of allLines) {
-      if (line.startsWith("## ")) overviewLines.push(line)
-    }
-    overviewLines.push("", "---", "")
-
-    // Extract range from "## Phase Index" up to (but excluding)
-    // "## Workflow State Breadcrumbs". Captures Phase Index + Phase 1/2/3.
-    let rangeStart = -1
-    let rangeEnd = allLines.length
-    for (let i = 0; i < allLines.length; i++) {
-      const stripped = allLines[i].trim()
-      if (rangeStart === -1 && stripped === "## Phase Index") {
-        rangeStart = i
-      } else if (rangeStart !== -1 && stripped === "## Workflow State Breadcrumbs") {
-        rangeEnd = i
-        break
-      }
-    }
-    if (rangeStart !== -1) {
-      overviewLines.push(...allLines.slice(rangeStart, rangeEnd))
-    }
-
-    parts.push("<workflow>")
-    parts.push(overviewLines.join("\n").trimEnd())
-    parts.push("</workflow>")
-  }
-
-  // 4. Guidelines — paths-only for most indexes; guides/ inlined (cross-package,
-  //    broadly useful). Sub-agents get their specific specs via jsonl injection —
-  //    main agent reads paths on demand when editing code directly.
-  parts.push("<guidelines>")
-  parts.push(
-    "Project spec indexes are listed by path below. Each index contains a " +
-    "**Pre-Development Checklist** listing the specific guideline files to " +
-    "read before coding.\n\n" +
-    "- If you're spawning an implement/check sub-agent, context is injected " +
-    "automatically via `{task}/implement.jsonl` / `check.jsonl`. You do NOT " +
-    "need to read these indexes yourself.\n" +
-    "- If you're editing code directly in the main session, Read the relevant " +
-    "index(es) on-demand and follow their Pre-Dev Checklist.\n"
-  )
-
-  const specDir = join(directory, ".trellis", "spec")
-
-  // guides/ inlined
-  const guidesIndex = join(specDir, "guides", "index.md")
-  if (existsSync(guidesIndex)) {
-    const content = ctx.readFile(guidesIndex)
-    if (content) {
-      parts.push(`## guides (inlined — cross-package thinking guides)\n${content}\n`)
-    }
-  }
-
-  // Other indexes — paths only
-  const paths = []
-  if (existsSync(specDir)) {
-    try {
-      const subs = readdirSync(specDir).filter(name => {
-        if (name.startsWith(".")) return false
-        try {
-          return statSync(join(specDir, name)).isDirectory()
-        } catch {
-          return false
-        }
-      }).sort()
-
-      for (const sub of subs) {
-        if (sub === "guides") continue  // already inlined above
-
-        const indexFile = join(specDir, sub, "index.md")
-        if (existsSync(indexFile)) {
-          paths.push(`.trellis/spec/${sub}/index.md`)
-        } else {
-          if (allowedPkgs !== null && !allowedPkgs.has(sub)) continue
-          try {
-            const nested = readdirSync(join(specDir, sub)).filter(name => {
-              try {
-                return statSync(join(specDir, sub, name)).isDirectory()
-              } catch {
-                return false
-              }
-            }).sort()
-            for (const layer of nested) {
-              const nestedIndex = join(specDir, sub, layer, "index.md")
-              if (existsSync(nestedIndex)) {
-                paths.push(`.trellis/spec/${sub}/${layer}/index.md`)
-              }
-            }
-          } catch {
-            // Ignore directory read errors
-          }
-        }
-      }
-    } catch {
-      // Ignore spec directory read errors
-    }
-  }
-
-  if (paths.length > 0) {
-    parts.push("## Available spec indexes (read on demand)")
-    for (const p of paths) {
-      parts.push(`- ${p}`)
-    }
-    parts.push("")
-  }
-
-  parts.push(
-    "Discover more via: " +
-    "`python3 ./.trellis/scripts/get_context.py --mode packages`"
-  )
-  parts.push("</guidelines>")
-
-  // 6. Task status
+  // Task status + imperative next action
   const taskStatus = getTaskStatus(ctx)
-  parts.push(`<task-status>\n${taskStatus}\n</task-status>`)
+  parts.push("## Task Status")
+  parts.push(taskStatus)
+  parts.push("")
 
-  // 7. Final directive
-  parts.push(`<ready>
-Context loaded. Workflow index, project state, and guidelines are already injected above — do NOT re-read them.
-Wait for the user's first message, then handle it following the workflow guide.
-If there is an active task, ask whether to continue it.
-</ready>`)
+  // Imperative instruction based on status
+  const statusLower = taskStatus.toLowerCase()
+  if (statusLower.includes("no active task")) {
+    parts.push(
+      "Wait for the user's message. " +
+      "If they describe multi-step work, load the trellis-brainstorm skill " +
+      "to clarify requirements and create a task. " +
+      "For simple one-off questions or trivial edits, answer directly."
+    )
+  } else if (statusLower.includes("stale pointer")) {
+    parts.push(
+      "The current task pointer is stale. " +
+      "Ask the user whether to archive the old task or start a new one."
+    )
+  } else if (statusLower.includes("not ready")) {
+    parts.push(
+      "The active task is not ready for implementation. " +
+      "Guide the user through Phase 1: complete the PRD, then run init-context."
+    )
+  } else if (statusLower.includes("completed")) {
+    parts.push(
+      "The active task is completed. " +
+      "Ask the user whether to archive it or start a new task."
+    )
+  } else {
+    parts.push(
+      "An active task is ready. " +
+      "Check conversation history and git status to determine the current step, " +
+      "then continue implementing. Do NOT skip the check step."
+    )
+  }
 
-  return parts.join("\n\n")
+  parts.push("</trellis-context>")
+
+  return parts.join("\n")
 }
 
 function getTrellisMetadata(metadata) {
@@ -478,8 +360,14 @@ export default {
 
           // Only inject on first message
           if (contextCollector.isProcessed(sessionID)) {
-            debugLog("session", "Skipping - session already processed")
-            return
+            // Memory says processed, but undo may have deleted the injected
+            // message. Verify persisted state is still valid before skipping.
+            if (await hasPersistedInjectedContext(client, ctx.directory, sessionID)) {
+              debugLog("session", "Skipping - session already processed and persisted")
+              return
+            }
+            contextCollector.clear(sessionID)
+            debugLog("session", "Cleared processed flag - persisted context missing (likely undo)")
           }
 
           if (await hasPersistedInjectedContext(client, ctx.directory, sessionID)) {
