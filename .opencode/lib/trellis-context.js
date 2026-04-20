@@ -1,11 +1,11 @@
 /**
  * Trellis Context Manager
  *
- * Utility class for OpenCode plugins providing file reading,
- * JSONL parsing, and context building capabilities.
+ * Utility class for OpenCode plugins providing project detection,
+ * file reading, and JSONL reference parsing capabilities.
  */
 
-import { existsSync, readFileSync, appendFileSync, readdirSync } from "fs"
+import { existsSync, readFileSync, appendFileSync } from "fs"
 import { isAbsolute, join } from "path"
 import { platform } from "os"
 import { execSync } from "child_process"
@@ -129,47 +129,12 @@ export class TrellisContext {
     }
   }
 
-  // ============================================================
-  // JSONL Reading
-  // ============================================================
-
-  readDirectoryMdFiles(dirPath, maxFiles = 20) {
+  readJsonlEntries(jsonlPath) {
     const results = []
-    const fullPath = join(this.directory, dirPath)
-
-    if (!existsSync(fullPath)) {
-      return results
-    }
-
-    try {
-      const files = readdirSync(fullPath)
-        .filter(f => f.endsWith(".md"))
-        .sort()
-        .slice(0, maxFiles)
-
-      for (const filename of files) {
-        const filePath = join(dirPath, filename)
-        const content = this.readProjectFile(filePath)
-        if (content) {
-          results.push({ path: filePath, content })
-        }
-      }
-    } catch {
-      // Ignore directory read errors
-    }
-
-    return results
-  }
-
-  /**
-   * Read a JSONL file and load referenced files/directories
-   * Supports:
-   *   {"file": "path/to/file.md", "reason": "..."}
-   *   {"file": "path/to/dir/", "type": "directory", "reason": "..."}
-   */
-  readJsonlWithFiles(jsonlPath) {
-    const results = []
-    const content = this.readFile(jsonlPath)
+    const fullJsonlPath = isAbsolute(jsonlPath)
+      ? jsonlPath
+      : join(this.directory, jsonlPath)
+    const content = this.readFile(fullJsonlPath)
     if (!content) return results
 
     for (const line of content.split("\n")) {
@@ -177,29 +142,20 @@ export class TrellisContext {
       try {
         const item = JSON.parse(line)
         const file = item.file || item.path
-        const entryType = item.type || "file"
+        const entryType = item.type === "directory" ? "directory" : "file"
+        const reason = typeof item.reason === "string" ? item.reason.trim() : ""
 
         if (!file) continue
 
-        if (entryType === "directory") {
-          const dirEntries = this.readDirectoryMdFiles(file)
-          results.push(...dirEntries)
-        } else {
-          const fullPath = join(this.directory, file)
-          const fileContent = this.readFile(fullPath)
-          if (fileContent) {
-            results.push({ path: file, content: fileContent })
-          }
+        const fullPath = join(this.directory, file)
+        if (existsSync(fullPath)) {
+          results.push({ path: file, type: entryType, reason })
         }
       } catch {
         // Ignore parse errors for individual lines
       }
     }
     return results
-  }
-
-  buildContextFromEntries(entries) {
-    return entries.map(e => `=== ${e.path} ===\n${e.content}`).join("\n\n")
   }
 }
 

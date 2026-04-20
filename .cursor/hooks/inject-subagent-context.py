@@ -6,8 +6,8 @@ Multi-Platform Sub-Agent Context Injection Hook
 Injects task-specific context when sub-agents (implement, check, research) are spawned.
 
 Core Design Philosophy:
-- Hook is responsible for injecting all context, subagent works autonomously with complete info
-- Each agent has a dedicated jsonl file defining its context
+- Hook injects full task documents plus ordered JSONL references
+- Each agent has a dedicated jsonl file defining its reference list
 - No resume needed, no segmentation, behavior controlled by code not prompt
 
 Trigger: PreToolUse (before Task tool call)
@@ -116,66 +116,13 @@ def read_file_content(base_path: str, file_path: str) -> str | None:
     return None
 
 
-def read_directory_contents(
-    base_path: str, dir_path: str, max_files: int = 20
-) -> list[tuple[str, str]]:
-    """
-    Read all .md files in a directory
-
-    Args:
-        base_path: Base path (usually repo_root)
-        dir_path: Directory relative path
-        max_files: Max files to read (prevent huge directories)
-
-    Returns:
-        [(file_path, content), ...]
-    """
-    full_path = os.path.join(base_path, dir_path)
-    if not os.path.exists(full_path) or not os.path.isdir(full_path):
-        return []
-
-    results = []
-    try:
-        # Only read .md files, sorted by filename
-        md_files = sorted(
-            [
-                f
-                for f in os.listdir(full_path)
-                if f.endswith(".md") and os.path.isfile(os.path.join(full_path, f))
-            ]
-        )
-
-        for filename in md_files[:max_files]:
-            file_full_path = os.path.join(full_path, filename)
-            relative_path = os.path.join(dir_path, filename)
-            try:
-                with open(file_full_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    results.append((relative_path, content))
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    return results
-
-
-def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]:
-    """
-    Read all file/directory contents referenced in jsonl file
-
-    Schema:
-        {"file": "path/to/file.md", "reason": "..."}
-        {"file": "path/to/dir/", "type": "directory", "reason": "..."}
-
-    Returns:
-        [(path, content), ...]
-    """
+def read_jsonl_references(base_path: str, jsonl_path: str) -> list[dict[str, str]]:
+    """Read JSONL context entries as ordered references only."""
     full_path = os.path.join(base_path, jsonl_path)
     if not os.path.exists(full_path):
         return []
 
-    results = []
+    results: list[dict[str, str]] = []
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -185,20 +132,23 @@ def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]
                 try:
                     item = json.loads(line)
                     file_path = item.get("file") or item.get("path")
-                    entry_type = item.get("type", "file")
+                    entry_type = "directory" if item.get("type") == "directory" else "file"
+                    reason = item.get("reason")
 
                     if not file_path:
                         continue
 
-                    if entry_type == "directory":
-                        # Read all .md files in directory
-                        dir_contents = read_directory_contents(base_path, file_path)
-                        results.extend(dir_contents)
-                    else:
-                        # Read single file
-                        content = read_file_content(base_path, file_path)
-                        if content:
-                            results.append((file_path, content))
+                    full_entry_path = os.path.join(base_path, file_path)
+                    if not os.path.exists(full_entry_path):
+                        continue
+
+                    results.append(
+                        {
+                            "path": file_path,
+                            "type": entry_type,
+                            "reason": reason.strip() if isinstance(reason, str) else "",
+                        }
+                    )
                 except json.JSONDecodeError:
                     continue
     except Exception:
@@ -207,20 +157,66 @@ def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]
     return results
 
 
+def dedupe_references(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Deduplicate references by path while preserving first occurrence order."""
+    seen: set[str] = set()
+    deduped: list[dict[str, str]] = []
+
+    for entry in entries:
+        entry_path = entry["path"]
+        if entry_path in seen:
+            continue
+        seen.add(entry_path)
+        deduped.append(entry)
+
+    return deduped
 
 
-def get_agent_context(repo_root: str, task_dir: str, agent_type: str) -> str:
-    """
-    Get context from {agent_type}.jsonl for the specified agent.
-    Only reads implement.jsonl or check.jsonl (the two JSONL files the task system creates).
-    """
-    context_parts = []
+def build_references_block(title: str, entries: list[dict[str, str]]) -> dict | None:
+    """Create a references block when entries are present."""
+    deduped = dedupe_references(entries)
+    if not deduped:
+        return None
 
-    agent_jsonl = f"{task_dir}/{agent_type}.jsonl"
-    for file_path, content in read_jsonl_entries(repo_root, agent_jsonl):
-        context_parts.append(f"=== {file_path} ===\n{content}")
+    return {"kind": "references", "title": title, "entries": deduped}
 
-    return "\n\n".join(context_parts)
+
+def build_document_block(title: str, path: str, content: str | None) -> dict | None:
+    """Create a full document block when content is present."""
+    if not content:
+        return None
+
+    return {"kind": "document", "title": title, "path": path, "content": content}
+
+
+def render_context_blocks(blocks: list[dict | None]) -> str:
+    """Render context blocks into prompt text."""
+    rendered: list[str] = []
+
+    for block in blocks:
+        if not block:
+            continue
+
+        if block["kind"] == "document":
+            rendered.append(f"=== {block['path']} ({block['title']}) ===\n{block['content']}")
+            continue
+
+        lines = [
+            f"## {block['title']}",
+            "",
+            "Read these files on demand before changing related code. They are references only; full contents are not preloaded.",
+            "",
+        ]
+        for entry in block["entries"]:
+            reason = entry.get("reason", "")
+            if reason:
+                lines.append(f"- `{entry['path']}` - {reason}")
+            else:
+                lines.append(f"- `{entry['path']}`")
+
+        rendered.append("\n".join(lines))
+
+    return "\n\n".join(rendered)
 
 
 def get_implement_context(repo_root: str, task_dir: str) -> str:
@@ -228,46 +224,47 @@ def get_implement_context(repo_root: str, task_dir: str) -> str:
     Complete context for Implement Agent
 
     Read order:
-    1. All files in implement.jsonl (dev specs)
+    1. Ordered references from implement.jsonl
     2. prd.md (requirements)
     3. info.md (technical design)
     """
-    context_parts = []
-
-    # 1. Read implement.jsonl
-    base_context = get_agent_context(repo_root, task_dir, "implement")
-    if base_context:
-        context_parts.append(base_context)
-
-    # 2. Requirements document
-    prd_content = read_file_content(repo_root, f"{task_dir}/prd.md")
-    if prd_content:
-        context_parts.append(f"=== {task_dir}/prd.md (Requirements) ===\n{prd_content}")
-
-    # 3. Technical design
-    info_content = read_file_content(repo_root, f"{task_dir}/info.md")
-    if info_content:
-        context_parts.append(
-            f"=== {task_dir}/info.md (Technical Design) ===\n{info_content}"
-        )
-
-    return "\n\n".join(context_parts)
+    return render_context_blocks(
+        [
+            build_references_block(
+                "Relevant References",
+                read_jsonl_references(repo_root, f"{task_dir}/implement.jsonl"),
+            ),
+            build_document_block(
+                "Requirements",
+                f"{task_dir}/prd.md",
+                read_file_content(repo_root, f"{task_dir}/prd.md"),
+            ),
+            build_document_block(
+                "Technical Design",
+                f"{task_dir}/info.md",
+                read_file_content(repo_root, f"{task_dir}/info.md"),
+            ),
+        ]
+    )
 
 
 def get_check_context(repo_root: str, task_dir: str) -> str:
     """
     Context for Check Agent: check.jsonl + prd.md
     """
-    context_parts = []
-
-    for file_path, content in read_jsonl_entries(repo_root, f"{task_dir}/check.jsonl"):
-        context_parts.append(f"=== {file_path} ===\n{content}")
-
-    prd_content = read_file_content(repo_root, f"{task_dir}/prd.md")
-    if prd_content:
-        context_parts.append(f"=== {task_dir}/prd.md (Requirements) ===\n{prd_content}")
-
-    return "\n\n".join(context_parts)
+    return render_context_blocks(
+        [
+            build_references_block(
+                "Relevant References",
+                read_jsonl_references(repo_root, f"{task_dir}/check.jsonl"),
+            ),
+            build_document_block(
+                "Requirements",
+                f"{task_dir}/prd.md",
+                read_file_content(repo_root, f"{task_dir}/prd.md"),
+            ),
+        ]
+    )
 
 
 def get_finish_context(repo_root: str, task_dir: str) -> str:
@@ -287,7 +284,7 @@ You are the Implement Agent in the Multi-Agent Pipeline.
 
 ## Your Context
 
-All the information you need has been prepared for you:
+Task documents are included below. Referenced files are listed separately and must be read on demand:
 
 {context}
 
@@ -301,7 +298,7 @@ All the information you need has been prepared for you:
 
 ## Workflow
 
-1. **Understand specs** - All dev specs are injected above, understand them
+1. **Understand references** - Relevant spec/code paths are listed above; read what you need on demand
 2. **Understand requirements** - Read requirements document and technical design
 3. **Implement feature** - Implement following specs and design
 4. **Self-check** - Ensure code quality against check specs
@@ -309,7 +306,7 @@ All the information you need has been prepared for you:
 ## Important Constraints
 
 - Do NOT execute git commit, only code modifications
-- Follow all dev specs injected above
+- Referenced files are NOT preloaded in full; read the relevant files before changing code
 - Report list of modified/created files when done"""
 
 
@@ -321,7 +318,7 @@ You are the Check Agent in the Multi-Agent Pipeline (code and cross-layer checke
 
 ## Your Context
 
-All check specs and dev specs you need:
+Task documents are included below. Referenced files are listed separately and must be read on demand:
 
 {context}
 
@@ -336,7 +333,7 @@ All check specs and dev specs you need:
 ## Workflow
 
 1. **Get changes** - Run `git diff --name-only` and `git diff` to get code changes
-2. **Check against specs** - Check item by item against specs above
+2. **Check against references** - Read the relevant referenced files and verify item by item
 3. **Self-fix** - Fix issues directly, don't just report
 4. **Run verification** - Run project's lint and typecheck commands
 
@@ -344,6 +341,7 @@ All check specs and dev specs you need:
 
 - Fix issues yourself, don't just report
 - Must execute complete checklist in check specs
+- Referenced files are NOT preloaded in full; read the relevant files before checking changes
 - Pay special attention to impact radius analysis (L1-L5)"""
 
 
@@ -355,7 +353,7 @@ You are performing the final check before creating a PR.
 
 ## Your Context
 
-Finish checklist and requirements:
+Task documents are included below. Referenced files are listed separately and must be read on demand:
 
 {context}
 
@@ -384,7 +382,8 @@ Finish checklist and requirements:
 - MUST read the target spec file BEFORE editing (avoid duplicating existing content)
 - Do NOT update specs for trivial changes (typos, formatting, obvious fixes)
 - If critical CODE issues found, report them clearly (fix specs, not code)
-- Verify all acceptance criteria in prd.md are met"""
+- Verify all acceptance criteria in prd.md are met
+- Referenced files are NOT preloaded in full; read the relevant files before verifying behavior"""
 
 
 
