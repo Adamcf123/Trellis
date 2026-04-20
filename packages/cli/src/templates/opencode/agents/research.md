@@ -2,6 +2,8 @@
 description: |
   Code and tech search expert. Pure research, no code modifications. Finds files, patterns, and tech solutions.
 mode: subagent
+model: openai/gpt-5.4-mini
+reasoningEffort: high
 permission:
   read: allow
   write: deny

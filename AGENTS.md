@@ -43,6 +43,8 @@ npm install -g /home/adam/projects/Hello-Adam/github-base-repos/Trellis/packages
 command -v trellis
 trellis --version
 
-# 4. 在目标 repo 中应用更新
-trellis update
+# 4. 在目标 repo 中应用更新（非交互终端默认带 --yes）
+trellis update --yes
 ```
+
+补充：在非交互终端里直接执行 `trellis update` 会因为无法确认更新而报错；默认使用 `trellis update --yes`。

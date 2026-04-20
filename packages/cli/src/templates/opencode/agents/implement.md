@@ -2,6 +2,8 @@
 description: |
   Code implementation expert. Understands specs and requirements, then implements features. No git commit allowed.
 mode: subagent
+model: openai/gpt-5.4-mini
+reasoningEffort: high
 permission:
   read: allow
   write: allow

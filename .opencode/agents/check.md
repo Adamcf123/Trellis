@@ -2,6 +2,8 @@
 description: |
   Code quality check expert. Reviews code changes against specs and self-fixes issues.
 mode: subagent
+model: openai/gpt-5.4-mini
+reasoningEffort: high
 permission:
   read: allow
   write: allow
