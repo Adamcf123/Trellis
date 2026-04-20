@@ -156,18 +156,16 @@ export interface ResolvedTemplate {
 /**
  * Filter command templates based on platform capabilities.
  *
- * `start.md` is only emitted for agent-less platforms (kilo, antigravity,
- * windsurf). On agent-capable platforms, the session-start hook / plugin
- * already injects the workflow overview, so a user-facing `start` command
- * would be redundant.
+ * Previously `start.md` was filtered for agent-capable platforms because the
+ * session-start hook injected the full workflow overview. After session-start
+ * was slimmed down to only inject project state + task status, `start` is
+ * needed on ALL platforms as an explicit reload entry point for the full
+ * workflow and guidelines.
  */
 function filterCommands(
   templates: CommonTemplate[],
-  ctx: TemplateContext,
+  _ctx: TemplateContext,
 ): CommonTemplate[] {
-  if (ctx.agentCapable) {
-    return templates.filter((t) => t.name !== "start");
-  }
   return templates;
 }
 

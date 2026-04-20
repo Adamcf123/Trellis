@@ -1,6 +1,8 @@
 # Start Session
 
-Initialize a Trellis-managed development session. This platform has no session-start hook, so manually load the equivalent context by following these steps (each one mirrors a section the hook would otherwise inject).
+Initialize or reload a Trellis-managed development session.
+
+Follow these steps to load the full workflow, project state, and guidelines into context. On platforms with session-start hooks, this command serves as an **explicit reload** when you need to re-establish the full development context mid-session.
 
 ---
 
