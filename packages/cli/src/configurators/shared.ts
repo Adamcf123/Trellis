@@ -286,7 +286,6 @@ This platform does NOT auto-inject task context via hook. Before doing anything 
 1. Read \`.trellis/.current-task\` to find the current task path (e.g. \`.trellis/tasks/04-17-foo/\`).
 2. Read the task's \`prd.md\` (requirements) and \`info.md\` if it exists (technical design).
 3. Read \`<task-path>/${jsonl}\` — JSONL list of dev spec files relevant to this agent.
-4. For each entry in the JSONL, Read its \`file\` path — these are the dev specs you must follow.
 
 If \`.current-task\` is missing or the task has no \`prd.md\`, ask the user what to work on; do NOT proceed without context.
 

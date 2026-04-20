@@ -95,8 +95,8 @@
   ".trellis/scripts/common/task_store.py": "86c62c6cbf4c0c852a3d0d9a80d1abedb8a059af5a059a711b0de4b09f95e3ca",
   ".claude/commands/trellis/finish-work.md": "692970dd868a60e757a3a43fbcd4821683201f5971b9f5878a59be7e635aa5c6",
   ".cursor/commands/trellis-finish-work.md": "692970dd868a60e757a3a43fbcd4821683201f5971b9f5878a59be7e635aa5c6",
-  ".codex/agents/check.toml": "459ba14229bef122c6cb8707c25e27a327d51b1e4b739d797532d774c2542204",
-  ".codex/agents/implement.toml": "e6ad42f7fc2166e56a639dc867644725f408504a5e3157c8436cfac745beea2a",
+  ".codex/agents/check.toml": "ad8504483cec950ed1df232f05c9e090a3a53c023d93c91eb6a2b35fb76c2bf6",
+  ".codex/agents/implement.toml": "40a9b8e1f694c3efeb0e0d836d136962ef0b5428f9ad232d0aa03bf20320d873",
   ".codex/agents/research.toml": "b43d858eb51caaf13e11a16b173c77e5ecd7ca3c57e5e6ff8ee777766f1c8634",
   ".codex/hooks/session-start.py": "d2add6f6aaac51cb283aa250f8035869f1ba95815fb57bf5a648cd3435693fc6",
   ".codex/hooks.json": "a7d09984dde4938c9262658140ead0f1327b8251d7fae4f1ec9107b72be9c4fe"
