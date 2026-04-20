@@ -85,11 +85,11 @@ When adding a new platform `{platform}`, update the following:
 |-----------|----------|
 | `src/templates/{platform}/` | Root directory |
 | `src/templates/{platform}/commands/trellis/` | Slash commands (`.md` files) |
-| `src/templates/{platform}/plugin/` | JS plugin files |
+| `src/templates/{platform}/plugins/` | JS plugin files |
 | `src/templates/{platform}/lib/` | JS library files |
 | `src/templates/{platform}/package.json` | Plugin dependencies |
 
-> Note: OpenCode uses JS plugins instead of Python hooks, has no `index.ts` template module, and has no `collectTemplates` — so `trellis update` does not track OpenCode template files. If a new platform uses JS plugins, follow this pattern.
+> Note: OpenCode uses JS plugins instead of Python hooks. Keep its integration in `src/templates/opencode/` (plugins + helper lib) rather than `shared-hooks/`, because the runtime API is different even when the behavior mirrors shared hook logic.
 
 **Skills pattern** (Codex, Kiro, Qoder):
 

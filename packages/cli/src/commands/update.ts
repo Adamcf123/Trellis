@@ -48,6 +48,7 @@ import {
 
 export interface UpdateOptions {
   dryRun?: boolean;
+  yes?: boolean;
   force?: boolean;
   skipAll?: boolean;
   createNew?: boolean;
@@ -72,6 +73,28 @@ interface ChangeAnalysis {
 }
 
 type ConflictAction = "overwrite" | "skip" | "create-new";
+
+function isInteractiveTerminal(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function shouldSkipConfirmation(options: UpdateOptions): boolean {
+  return Boolean(
+    options.yes || options.force || options.skipAll || options.createNew,
+  );
+}
+
+function requireInteractivePrompt(context: string): void {
+  if (isInteractiveTerminal()) {
+    return;
+  }
+
+  throw new Error(
+    `Cannot prompt for ${context} in a non-interactive terminal. ` +
+      `Re-run with --yes to accept defaults, or pass a conflict strategy ` +
+      `such as --force, --skip-all, or --create-new.`,
+  );
+}
 
 // Paths that should never be touched (true user data)
 // spec/ is user-customized content created during init; update should never modify it
@@ -572,8 +595,12 @@ async function promptConflictResolution(
   if (options.createNew) {
     return "create-new";
   }
+  if (options.yes) {
+    return "skip";
+  }
 
   // Interactive prompt
+  requireInteractivePrompt(`conflict resolution for ${file.relativePath}`);
   const { action } = await inquirer.prompt<{ action: string }>([
     {
       type: "list",
@@ -1018,7 +1045,13 @@ function printMigrationSummary(classified: ClassifiedMigrations): void {
  */
 async function promptMigrationAction(
   item: MigrationItem,
+  options: UpdateOptions,
 ): Promise<MigrationAction> {
+  if (options.yes) {
+    return "backup-rename";
+  }
+
+  requireInteractivePrompt(`migration choice for ${item.from}`);
   const headline =
     item.type === "rename"
       ? `${chalk.cyan(item.from)} → ${chalk.green(item.to)}`
@@ -1254,7 +1287,7 @@ async function executeMigrations(
       action = "skip";
     } else {
       // Default: interactive prompt
-      action = await promptMigrationAction(item);
+      action = await promptMigrationAction(item, options);
     }
 
     if (action === "skip") {
@@ -1741,18 +1774,22 @@ export async function update(options: UpdateOptions): Promise<void> {
   }
 
   // Confirm
-  const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
-    {
-      type: "confirm",
-      name: "proceed",
-      message: "Proceed?",
-      default: true,
-    },
-  ]);
+  if (!shouldSkipConfirmation(options)) {
+    requireInteractivePrompt("update confirmation");
 
-  if (!proceed) {
-    console.log(chalk.yellow("Update cancelled."));
-    return;
+    const { proceed } = await inquirer.prompt<{ proceed: boolean }>([
+      {
+        type: "confirm",
+        name: "proceed",
+        message: "Proceed?",
+        default: true,
+      },
+    ]);
+
+    if (!proceed) {
+      console.log(chalk.yellow("Update cancelled."));
+      return;
+    }
   }
 
   // Create complete backup of all managed platform/workflow directories

@@ -49,6 +49,51 @@ async function copyDirFiltered(
   }
 }
 
+function collectDirFiltered(
+  src: string,
+  destRoot: string,
+  files: Map<string, string>,
+  skipDirs: string[] = [],
+  relativeDir = "",
+): void {
+  for (const entry of readdirSync(src)) {
+    if (shouldExclude(entry) || skipDirs.includes(entry)) {
+      continue;
+    }
+
+    const srcPath = path.join(src, entry);
+    const relativePath = relativeDir ? path.join(relativeDir, entry) : entry;
+    const destPath = path.join(destRoot, relativePath).replace(/\\/g, "/");
+    const stat = statSync(srcPath);
+
+    if (stat.isDirectory()) {
+      collectDirFiltered(srcPath, destRoot, files, [], relativePath);
+      continue;
+    }
+
+    files.set(destPath, readFileSync(srcPath, "utf-8"));
+  }
+}
+
+export function collectOpenCodeTemplates(): Map<string, string> {
+  const sourcePath = getOpenCodeTemplatePath();
+  const destRoot = ".opencode";
+  const ctx = AI_TOOLS.opencode.templateContext;
+  const files = new Map<string, string>();
+
+  collectDirFiltered(sourcePath, destRoot, files, ["commands"]);
+
+  for (const cmd of resolveCommands(ctx)) {
+    files.set(`.opencode/commands/trellis/${cmd.name}.md`, cmd.content);
+  }
+
+  for (const skill of resolveSkills(ctx)) {
+    files.set(`.opencode/skills/${skill.name}/SKILL.md`, skill.content);
+  }
+
+  return files;
+}
+
 /**
  * Configure OpenCode:
  * - agents/, plugins/, lib/, package.json from platform-specific templates

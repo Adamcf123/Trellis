@@ -13,6 +13,7 @@ import { platform } from "os"
 import { TrellisContext, contextCollector, debugLog } from "../lib/trellis-context.js"
 
 const PYTHON_CMD = platform() === "win32" ? "python" : "python3"
+const SUBAGENT_TYPES = ["implement", "check", "research"]
 
 
 /**
@@ -463,6 +464,11 @@ export default {
           const sessionID = input.sessionID
           const agent = input.agent || "unknown"
           debugLog("session", "chat.message called, sessionID:", sessionID, "agent:", agent)
+
+          if (SUBAGENT_TYPES.includes(agent)) {
+            debugLog("session", "Skipping - subagent session")
+            return
+          }
 
           // Skip in non-interactive mode
           if (process.env.OPENCODE_NON_INTERACTIVE === "1") {

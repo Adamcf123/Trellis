@@ -110,6 +110,7 @@ program
 program
   .command("update")
   .description("Update trellis configuration and commands to latest version")
+  .option("-y, --yes", "Skip prompts and use defaults")
   .option("--dry-run", "Preview changes without applying them")
   .option("-f, --force", "Overwrite all changed files without asking")
   .option("-s, --skip-all", "Skip all changed files without asking")
@@ -119,6 +120,7 @@ program
   .action(async (options: Record<string, unknown>) => {
     try {
       await update({
+        yes: options.yes as boolean,
         dryRun: options.dryRun as boolean,
         force: options.force as boolean,
         skipAll: options.skipAll as boolean,

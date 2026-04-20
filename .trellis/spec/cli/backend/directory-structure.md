@@ -57,7 +57,7 @@ src/
 │   ├── droid/           # Droid templates (droids, settings)
 │   ├── gemini/          # Gemini templates (agents, settings)
 │   ├── kiro/            # Kiro templates (agents as JSON)
-│   ├── opencode/        # OpenCode templates (agents, plugin, lib)
+│   ├── opencode/        # OpenCode templates (agents, plugins, lib)
 │   ├── qoder/           # Qoder templates (agents, settings)
 │   ├── markdown/        # Generic markdown templates
 │   │   ├── spec/        # Spec templates (*.md.txt)

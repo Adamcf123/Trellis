@@ -21,9 +21,14 @@ Keep this managed block so 'trellis update' can refresh the instructions.
 
 <!-- TRELLIS:END -->
 
+## 使用opencode
+repo 里的 `.trellis/`、`.agents/`、`.opencode/` 等是生成物，不是源代码；应当改trellis在repo内的源代码，不要修改生成物；生成物不是插件核心
+
 ## Trellis 源码更新后的应用方式
 
-修改 Trellis 源代码后，不要直接去改目标 repo 里的 `.trellis/`、`.codex/`、`.agents/` 等生成物。正确动作是：先重新构建 CLI，再更新全局命令，然后在目标 repo 中执行 `trellis update`。
+修改 Trellis 源代码后，不要直接去改目标 repo 里的 `.trellis/`、`.codex/`、`.agents/`、`.opencode/` 等生成物。正确动作是：先重新构建 CLI，再更新全局命令，然后在目标 repo 中执行 `trellis update`。
+
+这里的“安装到全局”只指安装 `trellis` 这个 CLI 命令本身，不是把 Trellis 生成物装到全局。实际被写入的 `.trellis/`、`.codex/`、`.agents/`、`.opencode/` 仍然只会落到你当前执行 `trellis update` 的项目里。
 
 标准流程如下：
 
@@ -41,15 +46,3 @@ trellis --version
 # 4. 在目标 repo 中应用更新
 trellis update
 ```
-
-<!-- FIND-DIFFERENCES:START -->
-## Inferred Editing Principles
-
-The user's edits favor radical compression. They keep the top-level structure, then strip most procedure, examples, fallback handling, and judgment criteria. The document shifts from an operating manual toward a lightweight prompt scaffold.
-
-At a high level, the user prefers short directives over full specification, fewer explicit constraints, and just enough structure to keep the skill recognizable.
-
-At a low level, the user repeatedly deletes qualifiers, exceptions, examples, schema-like output sections, and whole explanatory blocks. They collapse detailed lists into short headings and reduce templates to minimal markers.
-
-The user is likely optimizing for scanability, lower prompt weight, and less over-steering. The edits also suggest an assumption that the model can reconstruct missing tactics without explicit step-by-step guidance.
-<!-- FIND-DIFFERENCES:END -->

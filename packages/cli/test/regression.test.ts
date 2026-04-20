@@ -625,10 +625,11 @@ describe("regression: migration data integrity (beta.14)", () => {
 });
 
 describe("regression: update only configured platforms (beta.16)", () => {
-  it("[beta.16] collectPlatformTemplates returns undefined for opencode (no collectTemplates)", () => {
-    // OpenCode uses plugin system, templates tracked separately
+  it("[beta.16] collectPlatformTemplates returns Map for opencode", () => {
     const result = collectPlatformTemplates("opencode");
-    expect(result).toBeUndefined();
+    expect(result).toBeInstanceOf(Map);
+    expect(result?.has(".opencode/plugins/session-start.js")).toBe(true);
+    expect(result?.has(".opencode/plugins/inject-subagent-context.js")).toBe(true);
   });
 
   it("[beta.16] collectPlatformTemplates returns Map for platforms with tracking", () => {
@@ -644,6 +645,7 @@ describe("regression: update only configured platforms (beta.16)", () => {
       "qoder",
       "codebuddy",
       "copilot",
+      "opencode",
     ] as const;
     for (const id of withTracking) {
       const result = collectPlatformTemplates(id);
